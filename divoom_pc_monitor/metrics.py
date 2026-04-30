@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import subprocess
 import time
+from collections import deque
 from dataclasses import dataclass
 
 import psutil
@@ -21,9 +22,11 @@ class PcMetrics:
 
 
 class MetricsSampler:
-    def __init__(self) -> None:
+    def __init__(self, average_window_seconds: float = 10.0) -> None:
+        self.average_window_seconds = average_window_seconds
         self._last_net = psutil.net_io_counters()
         self._last_time = time.monotonic()
+        self._samples: deque[tuple[float, PcMetrics]] = deque()
         psutil.cpu_percent(interval=None)
 
     def sample(self) -> PcMetrics:
@@ -38,7 +41,7 @@ class MetricsSampler:
         self._last_time = now
 
         gpu, gpu_temp, gpu_mem = _sample_nvidia()
-        return PcMetrics(
+        instant = PcMetrics(
             cpu=psutil.cpu_percent(interval=None),
             ram=psutil.virtual_memory().percent,
             disk=psutil.disk_usage("C:\\").percent,
@@ -48,6 +51,39 @@ class MetricsSampler:
             gpu_temp=gpu_temp,
             gpu_mem=gpu_mem,
         )
+        self._samples.append((now, instant))
+        cutoff = now - self.average_window_seconds
+        while self._samples and self._samples[0][0] < cutoff:
+            self._samples.popleft()
+        return self._average_samples()
+
+    def _average_samples(self) -> PcMetrics:
+        samples = [sample for _timestamp, sample in self._samples]
+        if not samples:
+            return PcMetrics(0, 0, 0, 0, 0)
+
+        return PcMetrics(
+            cpu=_average_value(sample.cpu for sample in samples),
+            ram=_average_value(sample.ram for sample in samples),
+            disk=_average_value(sample.disk for sample in samples),
+            net_down_kbps=_average_value(sample.net_down_kbps for sample in samples),
+            net_up_kbps=_average_value(sample.net_up_kbps for sample in samples),
+            gpu=_average_optional(sample.gpu for sample in samples),
+            gpu_temp=_average_optional(sample.gpu_temp for sample in samples),
+            gpu_mem=_average_optional(sample.gpu_mem for sample in samples),
+        )
+
+
+def _average_value(values) -> float:
+    values = list(values)
+    return sum(values) / len(values)
+
+
+def _average_optional(values) -> float | None:
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return sum(present) / len(present)
 
 
 def _sample_nvidia() -> tuple[float | None, float | None, float | None]:
