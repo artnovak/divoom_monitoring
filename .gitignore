@@ -6,6 +6,7 @@ logs/
 refs/
 
 *_preview.png
+steam_scroll_*.png
 preview.png
 
 .env

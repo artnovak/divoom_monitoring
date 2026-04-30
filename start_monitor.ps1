@@ -16,7 +16,7 @@ foreach ($process in $existing) {
 
 $stdout = Join-Path $logs "monitor.log"
 $stderr = Join-Path $logs "monitor.err.log"
-$args = "-m divoom_pc_monitor.app run --port COM7 --fps 1"
+$args = "-m divoom_pc_monitor.app run --port COM7 --fps 2"
 $env:PYTHONIOENCODING = "utf-8"
 
 Start-Process `

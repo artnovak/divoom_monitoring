@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+import time
 
 import psutil
 
@@ -183,7 +184,12 @@ def _detect_steam_game(games: list[tuple[Path, str]]) -> GameStatus | None:
 
         for game_path, title in games:
             if _is_relative_to(exe_path, game_path):
-                return GameStatus(kind="steam", title="STM", subtitle=title)
+                elapsed = None
+                try:
+                    elapsed = max(0, int(time.time() - proc.create_time()))
+                except (OSError, psutil.Error):
+                    pass
+                return GameStatus(kind="steam", title="STEAM", subtitle=title, elapsed_seconds=elapsed)
     return None
 
 

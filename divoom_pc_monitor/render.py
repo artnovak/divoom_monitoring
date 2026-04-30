@@ -191,7 +191,7 @@ def render_game(
         if screen == 2:
             return render_lol_score(kills, deaths, assists, tick)
         return render_lol_summary(subtitle, elapsed_seconds, tick)
-    return render_steam_game(title, subtitle, tick)
+    return render_steam_game(title, subtitle, elapsed_seconds, tick)
 
 
 def render_lol_summary(subtitle: str, elapsed_seconds: int | None, tick: int) -> Image.Image:
@@ -241,18 +241,34 @@ def render_lol_score(kills: int | None, deaths: int | None, assists: int | None,
     return img
 
 
-def render_steam_game(title: str, subtitle: str, tick: int) -> Image.Image:
-    main = title[:3].upper() or "STM"
+def _scroll_text(draw: ImageDraw.ImageDraw, text: str, y: int, fill: RGB, tick: int) -> None:
+    letters = "".join(ch for ch in text.upper() if "A" <= ch <= "Z" or ch.isdigit())
+    letters = letters or "GAME"
+    padded = "  " + letters + "  "
+    width = len(padded) * 4
+    offset = tick % max(1, width)
+    x = 4 - offset
+    for char in padded:
+        text3(draw, (x, y), char, fill)
+        x += 4
+
+
+def render_steam_game(title: str, subtitle: str, elapsed_seconds: int | None, tick: int) -> Image.Image:
     color = (94, 172, 255)
     accent = (130, 255, 170)
     bg = (3, 7, 14)
     img = Image.new("RGB", (16, 16), bg)
     draw = ImageDraw.Draw(img)
 
-    text3(draw, (2, 0), main, color)
-    code = _short_code(subtitle, "RUN")
-    text3(draw, (_center_x(code), 6), code, WHITE)
-    text3(draw, (_center_x("ON"), 11), "ON", accent)
+    screen = (tick // 8) % 3
+    if screen == 2 and elapsed_seconds is not None:
+        text3(draw, (_center_x("PLAY"), 0), "PLAY", color)
+        text3(draw, (_center_x(_format_time(elapsed_seconds)), 7), _format_time(elapsed_seconds), accent)
+        return img
+
+    text3(draw, (_center_x("STE"), 0), "STE", color)
+    text3(draw, (_center_x("AM"), 5), "AM", color)
+    _scroll_text(draw, subtitle, 11, accent, tick)
 
     return img
 
